@@ -66,7 +66,7 @@ int main() {
 	ps = getpwnam(user);
 	if (!ps)
 		ERROR(EX_TEMPFAIL, "user not found");
-	if (!setuid(ps->pw_uid))
+	if (setuid(ps->pw_uid))
 		ERROR(EX_TEMPFAIL, "cannot setuid");
 
 	/* now an empty line */
