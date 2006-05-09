@@ -1,10 +1,11 @@
+#include <sys/types.h>
+#include <pwd.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
 #include <sysexits.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 
 #define ERROR(code,descr) do {						\
@@ -60,6 +61,13 @@ int main() {
 
 	if (sscanf(buf, "User: %s", user) != 1)
 		ERROR(EX_PROTOCOL, "invalid input line");
+
+	struct passwd *ps;
+	ps = getpwnam(user);
+	if (!ps)
+		ERROR(EX_TEMPFAIL, "user not found");
+	if (!setuid(ps->pw_uid))
+		ERROR(EX_TEMPFAIL, "cannot setuid");
 
 	/* now an empty line */
 	fgets(buf, sizeof(buf), stdin);
