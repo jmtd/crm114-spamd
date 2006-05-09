@@ -39,8 +39,8 @@ int main() {
 	if (sscanf(buf, "%s SPAMC/%s", cmd, version) != 2) {
 		ERROR(EX_PROTOCOL, "invalid input line");
 	}
-	if (strcmp(cmd, "PROCESS") != 0)
-		ERROR(EX_PROTOCOL, "can only handle PROCESS");
+	if (strcmp(cmd, "REPORT") != 0)
+		ERROR(EX_PROTOCOL, "can only handle REPORT");
 	if (strcmp(version, "1.2") != 0)
 		ERROR(EX_PROTOCOL, "can only handle version 1.2");
 
@@ -152,7 +152,7 @@ int main() {
 		ERROR(EX_TEMPFAIL, "dspam exited with non-zero code");
 
 	/* Now we have the message as processed by dspam.
-	 * The only valid command right now is PROCESS so we
+	 * The only valid command right now is REPORT so we
 	 * extract the lines dspam added to the header first. */
 
 	/* null terminate message */
