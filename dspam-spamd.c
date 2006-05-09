@@ -9,7 +9,7 @@
 
 #define ERROR(code,descr) do {						\
 		printf("SPAMD/1.1 %d %s\r\n", code, descr);		\
-		return 0;						\
+		exit(0);						\
 	} while (0)
 
 #define MAXSIZE	(5*1024*1024)
@@ -27,6 +27,8 @@ int main() {
 	int status;
 	char *lflf, *crlfcrlf;
 
+
+	signal(SIGPIPE, SIG_IGN);
 	/* read command */
 	fgets(buf, sizeof(buf), stdin);
 	buf[sizeof(buf)-1] = '\0';
@@ -93,7 +95,7 @@ int main() {
 		dup2(dspam_out[1], 1);
 		dup2(dspam_err[1], 2);
 		sprintf(userarg, "--user=%s", user);
-		execl("/tmp/dspam", "/usr/bin/dspam", "--mode=toe", "--deliver=innocent,spam", "--stdout", userarg, NULL);
+		execl("/usr/bin/dspam", "/usr/bin/dspam", "--mode=toe", "--deliver=innocent,spam", "--stdout", userarg, NULL);
 		return 1;
 	}
 
@@ -138,7 +140,7 @@ int main() {
 
 	status = 0;
 	waitpid(fork_result, &status, 0);
-	if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0))
+	if (!(WIFEXITED(status)) || (WEXITSTATUS(status) != 0))
 		ERROR(EX_TEMPFAIL, "dspam exited with non-zero code");
 
 	/* Now we have the message as processed by dspam.
