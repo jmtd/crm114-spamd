@@ -1,0 +1,17 @@
+This is a small server that is supposed to run from (x)inetd.
+It accepts a connection, and then reads a command in the spamd protocol as
+specified on http://spamassassin.apache.org/full/3.0.x/dist/spamd/PROTOCOL.
+
+Currently, it only handles the REPORT query, but adding support for others
+should be straight-forward.
+
+It will
+ - report 0 score if dspam determines the message to not be spam,
+   and report that it is not spam
+ - report 10*probability if dspam determines the message to be spam,
+   and report that it is spam
+ - always set the points required to 0
+
+Hence, you probably never want to use the spam/not-spam verdict of this tool
+to make an automatic decision but rather go from the points.
+
