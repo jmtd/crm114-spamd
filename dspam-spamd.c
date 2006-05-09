@@ -50,7 +50,7 @@ int main() {
 	if (strlen(buf) > 50)
 		ERROR(EX_PROTOCOL, "line too long");
 
-	if (sscanf(buf, "Content-Length: %d", &length) != 1)
+	if (sscanf(buf, "Content-length: %d", &length) != 1)
 		ERROR(EX_PROTOCOL, "invalid input line");
 
 	/* read user line */
