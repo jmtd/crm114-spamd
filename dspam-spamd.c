@@ -44,15 +44,6 @@ int main() {
 	if (strcmp(version, "1.2") != 0)
 		ERROR(EX_PROTOCOL, "can only handle version 1.2");
 
-	/* read content-length line */
-	fgets(buf, sizeof(buf), stdin);
-	buf[sizeof(buf)-1] = '\0';
-	if (strlen(buf) > 50)
-		ERROR(EX_PROTOCOL, "line too long");
-
-	if (sscanf(buf, "Content-length: %d", &length) != 1)
-		ERROR(EX_PROTOCOL, "invalid input line");
-
 	/* read user line */
 	fgets(buf, sizeof(buf), stdin);
 	buf[sizeof(buf)-1] = '\0';
@@ -68,6 +59,15 @@ int main() {
 		ERROR(EX_TEMPFAIL, "user not found");
 	if (setuid(ps->pw_uid))
 		ERROR(EX_TEMPFAIL, "cannot setuid");
+
+	/* read content-length line */
+	fgets(buf, sizeof(buf), stdin);
+	buf[sizeof(buf)-1] = '\0';
+	if (strlen(buf) > 50)
+		ERROR(EX_PROTOCOL, "line too long");
+
+	if (sscanf(buf, "Content-length: %d", &length) != 1)
+		ERROR(EX_PROTOCOL, "invalid input line");
 
 	/* now an empty line */
 	fgets(buf, sizeof(buf), stdin);
