@@ -83,9 +83,11 @@ int main() {
 	/* now read the message */
 	if (length > MAXSIZE)
 		ERROR(EX_IOERR, "message too big");
+	if (length < 0)
+		length = MAXSIZE;
 
 	message = malloc(length+1);
-	fread(message, 1, length, stdin);
+	length = fread(message, 1, length, stdin);
 	fclose(stdin);
 
 	if (pipe(dspam_in) || pipe(dspam_out) || pipe(dspam_err))
