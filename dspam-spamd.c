@@ -24,7 +24,7 @@ int main()
 	char buf[200];
 	char cmd[50];
 	char version[50];
-	char user[50], userarg[60];
+	char user[50], userarg[60], mode[50], modearg[60];
 	char *message;
 	int length;
 	int fork_result;
@@ -75,7 +75,8 @@ int main()
 	if (strlen(buf) > 50)
 		ERROR(EX_PROTOCOL, "line too long");
 
-	if (sscanf(buf, "User: %s", user) != 1)
+	mode[0] = '\0';
+	if (sscanf(buf, "User: %s %s", user, mode) < 1)
 		ERROR(EX_PROTOCOL, "invalid input line (user)");
 
 	if (strcmp(id, user) && strcmp(id, "root") && strcmp(id, "Debian-exim"))
@@ -134,7 +135,8 @@ int main()
 		dup2(dspam_out[1], 1);
 		dup2(dspam_err[1], 2);
 		sprintf(userarg, "--user=%s", user);
-		execl("/usr/bin/dspam", "/usr/bin/dspam", "--mode=toe",
+		sprintf(modearg, "--mode=%s", mode[0] ? mode : "notrain");
+		execl("/usr/bin/dspam", "/usr/bin/dspam", modearg,
 		      "--deliver=innocent,spam", "--stdout", userarg, NULL);
 		return 1;
 	}

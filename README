@@ -11,8 +11,14 @@ It will
  - report 10*probability if dspam determines the message to be spam,
    and report that it is spam
  - always set the points required to 0
+ - setuid() to the user given in the User: header line in the protocol
+ - set the dspam mode to the mode given as in the User: header line
+   (for these two, the User: header line looks like this:
+     User: username mode
+   where the mode is optional)
 
-Hence, you probably never want to use the spam/not-spam verdict of this tool
-to make an automatic decision but rather go from the points.
+Due to the way the points are calculated, you probably never want to use the
+spam/not-spam verdict of this tool to make an automatic decision but rather
+go from the points.
 
 It only handles messages smaller than 5mb!
