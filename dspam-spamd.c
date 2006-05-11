@@ -7,6 +7,9 @@
 #include <signal.h>
 #include <sysexits.h>
 #include <sys/wait.h>
+#include <ident.h>
+#include <sys/socket.h>
+#include <errno.h>
 
 #define ERROR(code,descr) do {						\
 		printf("SPAMD/1.1 %d %s\r\n", code, descr);		\
@@ -27,8 +30,28 @@ int main() {
 	int dspam_in[2], dspam_out[2], dspam_err[2];
 	int status;
 	char *lflf, *crlfcrlf;
+	struct sockaddr_in addr;
+	socklen_t addrlen = sizeof(addr);
+	char *id;
 
+	if (getpeername(0, (struct sockaddr*)&addr, &addrlen)) {
+		if (errno == ENOTSOCK) {
+			struct passwd *p = getpwuid(getuid());
+			if (p) {
+				id = p->pw_name;
+				goto cont_after_permcheck;
+			}
+			ERROR(EX_NOPERM, "couldn't look up your username");
+		}
+		ERROR(EX_NOPERM, "couldn't look up your host address");
+	}
+	if (addr.sin_family != AF_INET || addr.sin_addr.s_addr != htonl(0x7f000001))
+		ERROR(EX_NOPERM, "not connected from localhost");
+	id = ident_id(0, 30);
+	if (!id)
+		ERROR(EX_NOPERM, "permission denied, run an ident server");
 
+ cont_after_permcheck:
 	signal(SIGPIPE, SIG_IGN);
 	/* read command */
 	fgets(buf, sizeof(buf), stdin);
@@ -37,10 +60,10 @@ int main() {
 		ERROR(EX_PROTOCOL, "line too long");
 
 	if (sscanf(buf, "%s SPAMC/%s", cmd, version) != 2) {
-		ERROR(EX_PROTOCOL, "invalid input line");
+		ERROR(EX_PROTOCOL, "invalid input line (cmd)");
 	}
-	if (strcmp(cmd, "REPORT") != 0)
-		ERROR(EX_PROTOCOL, "can only handle REPORT");
+	if (strcmp(cmd, "REPORT") && strcmp(cmd, "PROCESS"))
+		ERROR(EX_PROTOCOL, "can only handle REPORT and PROCESS");
 	if (strcmp(version, "1.2") != 0)
 		ERROR(EX_PROTOCOL, "can only handle version 1.2");
 
@@ -51,7 +74,10 @@ int main() {
 		ERROR(EX_PROTOCOL, "line too long");
 
 	if (sscanf(buf, "User: %s", user) != 1)
-		ERROR(EX_PROTOCOL, "invalid input line");
+		ERROR(EX_PROTOCOL, "invalid input line (user)");
+
+	if (strcmp(id, user) && strcmp(id, "root") && strcmp(id, "Debian-exim"))
+		ERROR(EX_NOPERM, "you can only check spam for yourself unless priviledged");
 
 	struct passwd *ps;
 	ps = getpwnam(user);
@@ -67,7 +93,7 @@ int main() {
 		ERROR(EX_PROTOCOL, "line too long");
 
 	if (sscanf(buf, "Content-length: %d", &length) != 1)
-		ERROR(EX_PROTOCOL, "invalid input line");
+		ERROR(EX_PROTOCOL, "invalid input line (length)");
 
 	/* now an empty line */
 	fgets(buf, sizeof(buf), stdin);
@@ -145,7 +171,7 @@ int main() {
 	}
 
 	/* rely on the fact that dspam doesn't dump a lot of data on stderr */
-	if (length = fread(buf, 1, sizeof(buf), fdspam_err))
+	if ((length = fread(buf, 1, sizeof(buf), fdspam_err)))
 		ERROR(EX_TEMPFAIL, "dspam printed something to stderr");
 
 	status = 0;
@@ -157,58 +183,66 @@ int main() {
 	 * The only valid command right now is REPORT so we
 	 * extract the lines dspam added to the header first. */
 
-	/* null terminate message */
-	processed[readlen] = '\0';
-	lflf = strstr(processed, "\n\n");
-	crlfcrlf = strstr(processed, "\r\n\r\n");
-	if (lflf) *lflf='\0';
-	if (crlfcrlf) *crlfcrlf='\0';
-	if (!lflf && !crlfcrlf)
-		ERROR(EX_TEMPFAIL, "dspam failed to return a proper message");
+	/* null terminate message. Yes, due to trick +1 is correct! */
+	processed[readlen+1] = '\0';
 
-	/* second part of dirty trick */
-	tmp2 = processed;
+	if (strcmp(cmd, "REPORT") == 0) {
+		lflf = strstr(processed, "\n\n");
+		crlfcrlf = strstr(processed, "\r\n\r\n");
+		if (lflf) *lflf='\0';
+		if (crlfcrlf) *crlfcrlf='\0';
+		if (!lflf && !crlfcrlf)
+			ERROR(EX_TEMPFAIL, "dspam failed to return a proper message");
 
-	while (tmp2 && (tmp = strstr(tmp2, "\nX-DSPAM"))) {
-		tmp++;
-		tmp2 = strchr(tmp, '\n');
-		if (tmp2) *tmp2 = '\0';
-		strcpy(dspamres, tmp);
-		dspamres += strlen(tmp);
-		*dspamres = '\n';
-		dspamres++;
-		if (tmp2) *tmp2 = '\n';
+		/* second part of dirty trick */
+		tmp2 = processed;
+
+		while (tmp2 && (tmp = strstr(tmp2, "\nX-DSPAM"))) {
+			tmp++;
+			tmp2 = strchr(tmp, '\n');
+			if (tmp2) *tmp2 = '\0';
+			strcpy(dspamres, tmp);
+			dspamres += strlen(tmp);
+			*dspamres = '\n';
+			dspamres++;
+			if (tmp2) *tmp2 = '\n';
+		}
+		*dspamres = '\0';
+
+		/* now we have everything dspam gave us */
+		char *res = strstr(dspamresult, "X-DSPAM-Result: ");
+		if (!res)
+			ERROR(EX_TEMPFAIL, "no dspam result!");
+
+		char spamtag[20];
+		strncpy(spamtag, res + strlen("X-DSPAM-Result: "), sizeof(spamtag));
+		int i;
+		for (i = 0; i < 20; i++)
+			if (spamtag[i] == '\n') spamtag[i] = '\0';
+		spamtag[19] = '\0';
+
+		char *conf = strstr(dspamresult, "X-DSPAM-Confidence: ");
+		if (!conf)
+			ERROR(EX_TEMPFAIL, "no dspam confidence!");
+		float confidence;
+		if (sscanf(conf, "X-DSPAM-Confidence: %f", &confidence) != 1)
+			ERROR(EX_TEMPFAIL, "could not parse dspam confidence");
+		confidence *= 10;
+
+		int isspam = strcasecmp(spamtag,"Spam")==0;
+		if (!isspam) confidence = 0;
+		printf("SPAMD/1.1 0 EX_OK\r\n");
+		printf("Spam: %s", isspam?"True":"False");
+		printf(" ; %f / 0\r\n\r\n", confidence);
+
+		printf("%s", dspamresult);
+	} else {
+		/* PROCESS */
+		printf("SPAMD/1.1 0 EX_OK\r\n");
+		printf("Content-length: %d\r\n", readlen);
+		printf("\r\n");
+		fwrite(processed+1, 1, readlen, stdout);
 	}
-	*dspamres = '\0';
-
-	/* now we have everything dspam gave us */
-	char *res = strstr(dspamresult, "X-DSPAM-Result: ");
-	if (!res)
-		ERROR(EX_TEMPFAIL, "no dspam result!");
-
-	char spamtag[20];
-	strncpy(spamtag, res + strlen("X-DSPAM-Result: "), sizeof(spamtag));
-	int i;
-	for (i = 0; i < 20; i++)
-		if (spamtag[i] == '\n') spamtag[i] = '\0';
-	spamtag[19] = '\0';
-
-	char *conf = strstr(dspamresult, "X-DSPAM-Confidence: ");
-	if (!conf)
-		ERROR(EX_TEMPFAIL, "no dspam confidence!");
-	float confidence;
-	if (sscanf(conf, "X-DSPAM-Confidence: %f", &confidence) != 1)
-		ERROR(EX_TEMPFAIL, "could not parse dspam confidence");
-	confidence *= 10;
-
-	int isspam = strcasecmp(spamtag,"Spam")==0;
-	if (!isspam) confidence = 0;
-	printf("SPAMD/1.1 0 EX_OK\r\n");
-	printf("Spam: %s", isspam?"True":"False");
-	printf(" ; %f / 0\r\n\r\n", confidence);
-
-	printf("%s", dspamresult);
-
 	/* always return ok status to (x)inetd */
 	return 0;
 }
