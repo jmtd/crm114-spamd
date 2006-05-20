@@ -22,3 +22,5 @@ spam/not-spam verdict of this tool to make an automatic decision but rather
 go from the points.
 
 It only handles messages smaller than 5mb!
+
+Please also see http://johannes.sipsolutions.net/Projects/dspam-spamd
