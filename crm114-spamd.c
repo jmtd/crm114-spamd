@@ -107,12 +107,7 @@ int main(int argc, char **argv)
 		ERROR(EX_TEMPFAIL, "user not found");
 	if (setuid(ps->pw_uid))
 		ERROR(EX_TEMPFAIL, "cannot setuid");
-	pid = fork();
-	if (pid < 0)
-		ERROR(EX_TEMPFAIL, "couldn't fork");
-	if (pid)
-		exit(0);
-	setuid(ps->pw_uid);
+	setenv("HOME", ps->pw_dir, 1);
 
 	/* read content-length line */
 	read_stdin_line(buf, sizeof(buf));
