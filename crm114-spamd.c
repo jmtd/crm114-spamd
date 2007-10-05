@@ -172,7 +172,10 @@ int main(int argc, char **argv)
 	sscanf(statusline, "X-CRM114-Status: %s ( %f )", status, &score);
 
 	printf("SPAMD/1.2 0 EX_OK\r\n");
-	printf("Spam: %s ; %.2f / %.2f\r\n", status, -score, 0.0);
+	if (strcmp(status, "SPAM") == 0)
+		printf("Spam: True ; %.2f / %.2f\r\n", -score, 0.0);
+	else
+		printf("Spam: False ; %.2f / %.2f\r\n", -score, 0.0);
 	printf("\r\n");
 
 	printf("%s", buf);
