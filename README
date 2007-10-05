@@ -5,22 +5,42 @@ specified on http://spamassassin.apache.org/full/3.0.x/dist/spamd/PROTOCOL.
 Currently, it only handles the REPORT query, but adding support for others
 should be straight-forward.
 
-It will
- - report 0 score if dspam determines the message to not be spam,
-   and report that it is not spam
- - report 10*probability if dspam determines the message to be spam,
-   and report that it is spam
- - always set the points required to 0
+It was only written to integrate crm114 into exim and hence has a very
+small feature set and doesn't exactly implement the spamd protocol
+perfectly, relies on exact upper/lowercasing of input etc. Hence, it is
+most likely not suited for use in places other than exim calling it.
+
+Here's an example use in an exim acl:
+
+/----------
+| warn
+|   set acl_m_spam_score_int = 0
+|
+| warn
+|   # condition = size restriction!
+|   spam = ${local_part}/defer_ok
+|   set acl_m_spam_score_int = $spam_score_int
+|
+| deny
+|   condition = ${if >{$acl_m_spam_score_int}{300}}
+|   message = We determined that your message is spam.
+\-----
+
+It will currently
+ - if two command line arguments are given, chdir() to the second one
  - setuid() to the user given in the User: header line in the protocol
- - set the dspam mode to the mode given as in the User: header line
-   (for these two, the User: header line looks like this:
-     User: username mode
-   where the mode is optional)
+ - call the binary specified by the first command line argument with the
+   '--report_only' option
+ - report "-score" (from the crm114 status) and SPAM/GOOD/UNSURE depending
+   on what mailreaver thinks of the message.
+ - output "spam threshold" zero (regardless of the crm114 settings)
 
 Due to the way the points are calculated, you probably never want to use the
 spam/not-spam verdict of this tool to make an automatic decision but rather
-go from the points.
+go from the points as in the example above.
 
-It only handles messages smaller than 5mb!
+NOTE: crm114 is only capable of handling messages smaller than around 8 MB
+      unless you use a wrapper that passes the -w flag, hence make sure that
+      you don't pass larger messages.
 
-Please also see http://johannes.sipsolutions.net/Projects/dspam-spamd
+Please also see http://johannes.sipsolutions.net/Projects/crm114-spamd

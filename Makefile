@@ -1,7 +1,7 @@
 CFLAGS = -Wall
 LDFLAGS = -lident
 
-dspam-spamd: dspam-spamd.c
+crm114-spamd: crm114-spamd.c
 
 clean:
-	rm -f *~ dspam-spamd
+	rm -f *~ crm114-spamd
