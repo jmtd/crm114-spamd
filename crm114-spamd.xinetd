@@ -1,0 +1,15 @@
+# default: off
+# description: Provides SpamAssassin-compatible access to CRM114 spam filtering
+service crm114-spamd
+{
+	disabled	= yes
+	type		= UNLISTED
+	port		= 783
+	socket_type     = stream
+	wait            = no
+	user            = exim
+	server          = /usr/bin/crm114-spamd
+	server_args     = /usr/share/crm114/mailreaver.crm /var/spool/exim/crm
+	log_on_failure  += USERID
+	only_from	= 127.0.0.1
+}
