@@ -72,12 +72,9 @@ int main(int argc, char **argv)
 		}
 		ERROR(EX_NOPERM, "couldn't look up your host address");
 	}
-	if (addr.sin_family != AF_INET
-	    || addr.sin_addr.s_addr != htonl(0x7f000001))
-		ERROR(EX_NOPERM, "not connected from localhost");
 	id = ident_id(0, 30);
 	if (!id)
-		ERROR(EX_NOPERM, "permission denied, run an ident server");
+		ERROR(EX_NOPERM, "permission denied; run an ident server");
 
  cont_after_permcheck:
 	signal(SIGPIPE, SIG_IGN);
@@ -98,9 +95,9 @@ int main(int argc, char **argv)
 
 	/* allow root and Debian-exim to check for anyone */
 	if (strcmp(id, user) &&
-	    strcmp(id, "root") && strcmp(id, "Debian-exim"))
+	    strcmp(id, "root") && strcmp(id, "exim") && strcmp(id, "Debian-exim"))
 		ERROR(EX_NOPERM, "you can only check spam for yourself"
-		      "(unless priviledged)");
+		      "(unless privileged)");
 
 	ps = getpwnam(user);
 	if (!ps)
