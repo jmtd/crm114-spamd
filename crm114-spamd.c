@@ -11,11 +11,13 @@
 #include <sys/socket.h>
 #include <errno.h>
 #include <libgen.h> /* dirname */
+#include <syslog.h>
 
 static void ERROR(int code, char *descr)
 {
 	printf("SPAMD/1.1 %d %s\r\n", code, descr);
 	fflush(stdout);
+	syslog(LOG_MAIL | LOG_ERR , "%s", descr);
 	exit(0);
 }
 
@@ -60,7 +62,7 @@ int main(int argc, char **argv)
 		ERROR(EX_PROTOCOL, "need mailreaver binary");
 	if (argc > 2)
 		chdir(argv[2]);
-
+	openlog("crm114-spamd", 0, LOG_MAIL);
 	if (getpeername(0, (struct sockaddr *)&addr, &addrlen)) {
 		if (errno == ENOTSOCK) {
 			/* most likely started from terminal */
