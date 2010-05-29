@@ -10,6 +10,7 @@
 #include <ident.h>
 #include <sys/socket.h>
 #include <errno.h>
+#include <libgen.h> /* dirname */
 
 static void ERROR(int code, char *descr)
 {
@@ -126,6 +127,8 @@ int main(int argc, char **argv)
 		ERROR(EX_TEMPFAIL, "failed to fork");
 
 	if (pid == 0) {
+		char * dn, *tmpstr;
+		FILE *myfile;
 		/* in child */
 		close(1);
 		close(2);
@@ -134,7 +137,15 @@ int main(int argc, char **argv)
 		dup2(crm_out[1], 2);
 		close(crm_out[1]);
 
-		execl(argv[1], argv[1], "--report_only", NULL);
+		/* establish dirname */
+		tmpstr = strdup(argv[1]);
+		dn = strdup(dirname(tmpstr));
+		free(tmpstr);
+
+		myfile = fopen("/tmp/jon2","w");
+		fprintf(myfile, "%s %s %s %s\n", argv[1], "-u", dn, "--report_only");
+		fclose(myfile);
+		execl(argv[1], argv[1], "-u", dn, "--report_only", NULL);
 		return 1;
 	}
 
@@ -159,8 +170,17 @@ int main(int argc, char **argv)
 	if (waitpid(pid, &res, 0) != pid)
 		ERROR(EX_TEMPFAIL, "failed to wait for crm114");
 
-	if (!WIFEXITED(res) || WEXITSTATUS(res))
-		ERROR(EX_TEMPFAIL, "crm114 failed");
+	if (!WIFEXITED(res) || WEXITSTATUS(res)) {
+		char msg[40];
+		FILE *myfile;
+		size_t written;
+		/* write buf to tmpfile */
+		myfile = fopen("/tmp/jon","w");
+		written = fwrite(buf, length, 1, myfile);
+		fclose(myfile);
+		sprintf(msg, "crm114 failed (exit status %d, wrote %d, length %d)", WEXITSTATUS(res), written, length);
+		ERROR(EX_TEMPFAIL, msg);
+	}
 
 	statusline = strstr(buf, "X-CRM114-Status: ");
 	if (!statusline)
