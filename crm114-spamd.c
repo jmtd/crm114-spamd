@@ -44,6 +44,11 @@ static int read_stdin_line(char *buf, int bufsize)
 	return i;
 }
 
+/* dump lsof output so that we can diagnose identd issues */
+void hacky_jon_shit() {
+	system("lsof -ni:spamd >/tmp/zomg");
+}
+
 int main(int argc, char **argv)
 {
 	struct sockaddr_in addr;
@@ -77,6 +82,7 @@ int main(int argc, char **argv)
 		}
 		ERROR(EX_NOPERM, "couldn't look up your host address");
 	}
+	hacky_jon_shit();
 #if CHECK_IDENT
 	id = ident_id(0, 30);
 	if (!id)
