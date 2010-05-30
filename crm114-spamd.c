@@ -13,6 +13,8 @@
 #include <libgen.h> /* dirname */
 #include <syslog.h>
 
+#define CHECK_IDENT 0
+
 static void ERROR(int code, char *descr)
 {
 	printf("SPAMD/1.1 %d %s\r\n", code, descr);
@@ -75,9 +77,11 @@ int main(int argc, char **argv)
 		}
 		ERROR(EX_NOPERM, "couldn't look up your host address");
 	}
+#if CHECK_IDENT
 	id = ident_id(0, 30);
 	if (!id)
 		ERROR(EX_NOPERM, "permission denied; run an ident server");
+#endif
 
  cont_after_permcheck:
 	signal(SIGPIPE, SIG_IGN);
