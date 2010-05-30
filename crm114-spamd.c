@@ -107,10 +107,12 @@ int main(int argc, char **argv)
 		ERROR(EX_PROTOCOL, "invalid input line (user)");
 
 	/* allow root and Debian-exim to check for anyone */
+#if CHECK_IDENT
 	if (strcmp(id, user) &&
 	    strcmp(id, "root") && strcmp(id, "exim") && strcmp(id, "Debian-exim"))
 		ERROR(EX_NOPERM, "you can only check spam for yourself"
 		      "(unless privileged)");
+#endif
 
 	ps = getpwnam(user);
 	if (!ps)
